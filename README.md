@@ -39,7 +39,7 @@ Segmentation_Project/
             ├── images/              # Input images
             └── labels/              # Ground truth masks
 ```
-
+**NOTE:** Download the dataset using downloader.py file
 ## 🛠 Installation
 
 ### Prerequisites
