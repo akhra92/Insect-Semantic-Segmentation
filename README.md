@@ -1,6 +1,7 @@
 # 🐛 Insect Semantic Segmentation Project
 
 A deep learning project for semantic segmentation of insects using PyTorch and U-Net architecture with ResNet34 encoder. This project includes training, inference, API server, and interactive Streamlit demo capabilities.
+NOTE: The Dockerfile should be modified to be able to run this project in GPU!
 
 ## 📋 Table of Contents
 - [Project Structure](#-project-structure)
