@@ -12,7 +12,6 @@ NOTE: The Dockerfile should be modified to be able to run this project in GPU!
 - [API Usage](#-api-usage)
 - [Streamlit Demo](#-streamlit-demo)
 - [Training](#-training)
-- [Model Architecture](#-model-architecture)
 - [Troubleshooting](#-troubleshooting)
 - [Contributing](#-contributing)
 
