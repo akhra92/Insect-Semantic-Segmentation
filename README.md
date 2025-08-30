@@ -39,7 +39,7 @@ Segmentation_Project/
             ├── images/              # Input images
             └── labels/              # Ground truth masks
 ```
-**NOTE:** Download the dataset using downloader.py file
+**NOTE:** Download the dataset using **downloader.py** file
 ## 🛠 Installation
 
 ### Prerequisites
@@ -53,7 +53,7 @@ Segmentation_Project/
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd Segmentation_Project
+cd <repository-folder>
 
 # Build Docker image
 docker build -t segmentation_project .
@@ -64,7 +64,7 @@ docker build -t segmentation_project .
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd Segmentation_Project
+cd <repository-folder>
 
 # Install dependencies
 pip install torch==2.0.1 torchvision==0.15.2
