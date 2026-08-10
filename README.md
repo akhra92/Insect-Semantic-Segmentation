@@ -2,6 +2,7 @@
 
 A deep learning project for semantic segmentation of insects using PyTorch and U-Net architecture with ResNet34 encoder. This project includes training, inference, API server, and interactive Streamlit demo capabilities.
 NOTE: The Dockerfile should be modified to be able to run this project in GPU!
+[Try Demo Here](share.streamlit.io)
 
 ## 📋 Table of Contents
 - [Project Structure](#-project-structure)
@@ -12,7 +13,6 @@ NOTE: The Dockerfile should be modified to be able to run this project in GPU!
 - [API Usage](#-api-usage)
 - [Streamlit Demo](#-streamlit-demo)
 - [Training](#-training)
-- [Troubleshooting](#-troubleshooting)
 - [Contributing](#-contributing)
 
 

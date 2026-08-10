@@ -1,0 +1,21 @@
+# Streamlit Cloud installs from this file automatically.
+# Set Python version to 3.12 in the app's Advanced settings.
+
+# CPU-only PyTorch wheels (~190 MB instead of ~2.5 GB CUDA build).
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.2.2+cpu
+torchvision==0.17.2+cpu
+
+segmentation-models-pytorch==0.3.4
+
+# Image processing
+albumentations==1.4.18
+opencv-python-headless==4.10.0.84
+Pillow==10.4.0
+numpy==1.26.4
+
+# Visualization
+matplotlib==3.9.2
+
+# App
+streamlit>=1.36.0
