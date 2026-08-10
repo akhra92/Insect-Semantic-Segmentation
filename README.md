@@ -149,45 +149,6 @@ streamlit run streamlit_demo.py \
   --server.headless true
 
 
-## 🐛 Troubleshooting
-
-### Common Issues
-
-#### Docker Issues
-```bash
-# Permission denied
-chmod +x docker-entrypoint.sh
-
-# Port already in use
-docker run -p 8001:8000 segmentation_project api
-
-# Out of memory
-docker run -e BATCH_SIZE=4 -e NUM_WORKERS=0 segmentation_project train
-```
-
-#### Model Issues
-```bash
-# Model not found
-# Ensure saved_models/insect_best_model.pt exists
-ls -la saved_models/
-
-# CUDA errors (M1 Mac)
-# Use CPU mode
-docker run -e DEVICE=cpu segmentation_project train
-```
-
-#### API Issues
-```bash
-# Check API health
-curl http://localhost:8000/health
-
-# View API docs
-open http://localhost:8000/docs
-
-# Check logs
-docker logs <container_id>
-```
-
 ## 🤝 Contributing
 
 1. Fork the repository
