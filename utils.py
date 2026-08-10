@@ -81,8 +81,8 @@ class Plot():
 
     def plot_all(self):
         self.plot_metric(
-            metric1="tr_iou",
-            metric2="val_iou",
+            metric1="tr_miou",
+            metric2="val_miou",
             label1="Train IOU",
             label2="Validation IOU",
             title=f"Mean Intersection Over Union (mIOU) Score of {self.model_name}",

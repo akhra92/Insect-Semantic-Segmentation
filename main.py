@@ -38,6 +38,6 @@ trainer = Trainer(model=model,
 
 if __name__ == "__main__":
     history = trainer.run(epochs=args.ep, save_prefix="insect")
-    Plot(history)
+    Plot(history, model_name="Unet-ResNet34", save_dir="plots")
     inference_runner = Inference(model_path=args.mp, device=args.d)
     inference_runner.run(dl=ts_loader)
