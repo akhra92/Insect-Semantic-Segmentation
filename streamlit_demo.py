@@ -1,14 +1,18 @@
 import streamlit as st
 import torch
 import numpy as np
-from PIL import Image, ImageOps
+from PIL import Image
 import segmentation_models_pytorch as smp
 from utils import get_transforms
 import matplotlib.pyplot as plt
 import cv2
 import io
 import os
+import tempfile
+import urllib.request
 from typing import Optional
+
+DEFAULT_MODEL_PATH = "saved_models/insect_best_model.pt"
 
 # Page configuration
 st.set_page_config(
@@ -47,57 +51,111 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-@st.cache_resource
-def load_model(model_path: str = "saved_models/insect_best_model.pt") -> Optional[torch.nn.Module]:
+
+def get_config(key: str) -> Optional[str]:
+    """Read a setting from Streamlit secrets, falling back to env vars."""
+    try:
+        if key in st.secrets:
+            return str(st.secrets[key])
+    except Exception:
+        # No secrets.toml present (e.g. plain local run)
+        pass
+    return os.environ.get(key)
+
+
+@st.cache_resource(show_spinner="⬇️ Downloading model weights...")
+def download_model(url: str) -> Optional[str]:
+    """Download model weights once per app instance and cache them on disk"""
+    dest = os.path.join(tempfile.gettempdir(), "insect_model_remote.pt")
+    if os.path.exists(dest) and os.path.getsize(dest) > 0:
+        return dest
+    try:
+        request = urllib.request.Request(url, headers={"User-Agent": "insect-segmentation-demo"})
+        with urllib.request.urlopen(request) as response, open(dest, "wb") as f:
+            f.write(response.read())
+        return dest
+    except Exception as e:
+        st.error(f"❌ Could not download weights from MODEL_URL: {e}")
+        return None
+
+
+def build_model() -> torch.nn.Module:
+    """Build the architecture without fetching ImageNet weights (they get overwritten anyway)"""
+    return smp.Unet(encoder_name="resnet34", encoder_weights=None, encoder_depth=5, classes=2)
+
+
+@st.cache_resource(show_spinner="🧠 Loading model...")
+def load_model(model_path: str, _cache_key: float = 0.0) -> Optional[torch.nn.Module]:
     """Load the trained segmentation model"""
     try:
         if not os.path.exists(model_path):
-            st.error(f"❌ Model not found at {model_path}")
-            st.info("💡 Please ensure you have trained the model or upload a trained model file.")
             return None
-        
-        # Load model
-        model = smp.Unet(encoder_name="resnet34", encoder_depth=5, classes=2)
-        model.load_state_dict(torch.load(model_path, map_location="cpu"))
+
+        checkpoint = torch.load(model_path, map_location="cpu", weights_only=True)
+        # Support both bare state_dicts and {"state_dict": ...} style checkpoints
+        if isinstance(checkpoint, dict) and "state_dict" in checkpoint:
+            checkpoint = checkpoint["state_dict"]
+
+        model = build_model()
+        model.load_state_dict(checkpoint)
         model.eval()
-        
-        st.success("✅ Model loaded successfully!")
         return model
-        
+
     except Exception as e:
         st.error(f"❌ Error loading model: {str(e)}")
         return None
 
-@st.cache_data
+
+def resolve_model() -> Optional[torch.nn.Module]:
+    """Find weights from the repo, then from MODEL_URL, in that order"""
+    if os.path.exists(DEFAULT_MODEL_PATH):
+        return load_model(DEFAULT_MODEL_PATH, os.path.getmtime(DEFAULT_MODEL_PATH))
+
+    model_url = get_config("MODEL_URL")
+    if model_url:
+        downloaded = download_model(model_url)
+        if downloaded:
+            return load_model(downloaded)
+        return None
+
+    st.warning(
+        f"⚠️ No weights found at `{DEFAULT_MODEL_PATH}` and no `MODEL_URL` configured. "
+        "Switch to **Upload model file** in the sidebar, or set `MODEL_URL` in the app secrets."
+    )
+    return None
+
+
+@st.cache_resource
 def get_image_transforms():
     """Get image transforms for preprocessing"""
     return get_transforms(img_size=256)
 
-def predict_segmentation(model: torch.nn.Module, image: Image.Image, transform) -> tuple:
+
+def predict_segmentation(model: torch.nn.Module, image: Image.Image, transform) -> Optional[dict]:
     """Run segmentation prediction on an image"""
     try:
         # Convert PIL image to numpy array
         image_np = np.array(image.convert("RGB"))
         original_size = image.size
-        
+
         # Apply transforms
         transformed = transform(image=image_np)
         input_tensor = transformed["image"].unsqueeze(0)
-        
+
         # Predict
         with torch.no_grad():
             prediction = model(input_tensor)
             probabilities = torch.softmax(prediction, dim=1)
             mask = torch.argmax(prediction, dim=1).squeeze().cpu().numpy()
-        
+
         # Convert to binary mask (0 or 1)
         binary_mask = (mask > 0).astype(np.uint8)
-        
+
         # Calculate statistics
         total_pixels = binary_mask.size
-        foreground_pixels = np.sum(binary_mask)
+        foreground_pixels = int(np.sum(binary_mask))
         background_pixels = total_pixels - foreground_pixels
-        
+
         return {
             "mask": binary_mask,
             "probabilities": probabilities.cpu().numpy(),
@@ -108,44 +166,49 @@ def predict_segmentation(model: torch.nn.Module, image: Image.Image, transform) 
             "background_pixels": background_pixels,
             "foreground_percentage": (foreground_pixels / total_pixels) * 100
         }
-        
+
     except Exception as e:
         st.error(f"Prediction error: {str(e)}")
         return None
 
+
 def create_overlay_visualization(original_image: Image.Image, mask: np.ndarray, alpha: float = 0.5):
     """Create an overlay visualization of the original image and predicted mask"""
-    # Resize mask to match original image size
-    original_np = np.array(original_image)
-    mask_resized = cv2.resize(mask.astype(np.uint8), original_image.size, interpolation=cv2.INTER_NEAREST)
-    
+    # Force 3-channel RGB so grayscale/RGBA uploads do not break the blend
+    original_rgb = original_image.convert("RGB")
+    original_np = np.array(original_rgb)
+
+    # Resize mask to match original image size (PIL size is (width, height), same as cv2 dsize)
+    mask_resized = cv2.resize(mask.astype(np.uint8), original_rgb.size, interpolation=cv2.INTER_NEAREST)
+
     # Create colored mask (red for foreground)
     colored_mask = np.zeros_like(original_np)
     colored_mask[mask_resized == 1] = [255, 0, 0]  # Red for insects
-    
+
     # Create overlay
-    overlay = cv2.addWeighted(original_np, 1-alpha, colored_mask, alpha, 0)
-    
+    overlay = cv2.addWeighted(original_np, 1 - alpha, colored_mask, alpha, 0)
+
     return Image.fromarray(overlay)
+
 
 def main():
     # Header
     st.markdown('<h1 class="main-header">🐛 Insect Segmentation Demo</h1>', unsafe_allow_html=True)
     st.markdown("Upload an image of insects to get semantic segmentation results using deep learning!")
-    
+
     # Sidebar
     with st.sidebar:
         st.markdown('<h2 class="sub-header">⚙️ Configuration</h2>', unsafe_allow_html=True)
-        
+
         # Model loading
         model_option = st.radio(
             "Model Source:",
-            ["Load from saved_models/", "Upload model file"]
+            ["Use bundled/remote weights", "Upload model file"]
         )
-        
+
         model = None
-        if model_option == "Load from saved_models/":
-            model = load_model()
+        if model_option == "Use bundled/remote weights":
+            model = resolve_model()
         else:
             uploaded_model = st.file_uploader(
                 "Upload trained model (.pt file)",
@@ -153,80 +216,73 @@ def main():
                 help="Upload your trained PyTorch model file"
             )
             if uploaded_model:
-                # Save uploaded file temporarily
-                with open("temp_model.pt", "wb") as f:
-                    f.write(uploaded_model.read())
-                model = load_model("temp_model.pt")
-        
+                # Write to a temp file keyed on the upload, so a new file busts the cache
+                temp_path = os.path.join(tempfile.gettempdir(), f"uploaded_{uploaded_model.name}")
+                with open(temp_path, "wb") as f:
+                    f.write(uploaded_model.getbuffer())
+                model = load_model(temp_path, os.path.getmtime(temp_path))
+
+        if model is not None:
+            st.success("✅ Model loaded")
+
         # Visualization options
         st.markdown('<h3 class="sub-header">🎨 Visualization</h3>', unsafe_allow_html=True)
         overlay_alpha = st.slider("Overlay Transparency", 0.0, 1.0, 0.5, 0.1)
         show_probabilities = st.checkbox("Show Probability Heatmap", False)
-    
+
     # Main content area
     col1, col2 = st.columns([1, 1])
-    
+
     with col1:
         st.markdown('<h2 class="sub-header">📤 Upload Image</h2>', unsafe_allow_html=True)
-        
+
         # File uploader
         uploaded_file = st.file_uploader(
             "Choose an image file",
             type=['jpg', 'jpeg', 'png', 'bmp'],
             help="Upload an image containing insects for segmentation"
         )
-        
-        # Example images
-        st.markdown("**Or try example images:**")
-        example_images = {
-            "🐛 Example 1": "https://via.placeholder.com/400x300/4CAF50/FFFFFF?text=Upload+Your+Image",
-            "🦋 Example 2": "https://via.placeholder.com/400x300/FF9800/FFFFFF?text=Upload+Your+Image"
-        }
-        
-        selected_example = st.selectbox("Select example:", ["None"] + list(example_images.keys()))
-        
-        # Display uploaded or example image
+
+        # Display uploaded image
         image = None
         if uploaded_file is not None:
             image = Image.open(uploaded_file)
-            st.image(image, caption="Uploaded Image", use_column_width=True)
-        elif selected_example != "None":
-            st.info("💡 Example images are placeholders. Upload your own insect images for real segmentation!")
-    
+            st.image(image, caption="Uploaded Image", use_container_width=True)
+
     with col2:
         st.markdown('<h2 class="sub-header">🎯 Prediction Results</h2>', unsafe_allow_html=True)
-        
+
         if image is not None and model is not None:
             # Get transforms
             transform = get_image_transforms()
-            
+
             # Run prediction
             with st.spinner("🔄 Running segmentation..."):
                 result = predict_segmentation(model, image, transform)
-            
+
             if result:
                 # Display results
                 mask = result["mask"]
-                
+
                 # Create visualizations
                 fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-                
+
                 # Original image
                 axes[0, 0].imshow(image)
                 axes[0, 0].set_title("Original Image")
                 axes[0, 0].axis('off')
-                
+
                 # Predicted mask
                 axes[0, 1].imshow(mask, cmap='gray')
                 axes[0, 1].set_title("Predicted Mask")
                 axes[0, 1].axis('off')
-                
+
                 # Overlay
                 overlay_img = create_overlay_visualization(image, mask, overlay_alpha)
                 axes[1, 0].imshow(overlay_img)
                 axes[1, 0].set_title("Overlay (Red = Insect)")
                 axes[1, 0].axis('off')
-                
+
                 # Probability heatmap (if requested)
                 if show_probabilities and len(result["probabilities"].shape) > 2:
                     prob_map = result["probabilities"][0, 1]  # Foreground probability
@@ -234,18 +290,19 @@ def main():
                     axes[1, 1].set_title("Foreground Probability")
                     axes[1, 1].axis('off')
                 else:
-                    axes[1, 1].text(0.5, 0.5, 'Probability\nHeatmap\n(Enable in sidebar)', 
-                                   ha='center', va='center', transform=axes[1, 1].transAxes)
+                    axes[1, 1].text(0.5, 0.5, 'Probability\nHeatmap\n(Enable in sidebar)',
+                                    ha='center', va='center', transform=axes[1, 1].transAxes)
                     axes[1, 1].axis('off')
-                
+
                 plt.tight_layout()
                 st.pyplot(fig)
-                
+                plt.close(fig)
+
                 # Statistics
                 st.markdown('<h3 class="sub-header">📊 Statistics</h3>', unsafe_allow_html=True)
-                
+
                 col_stats1, col_stats2, col_stats3 = st.columns(3)
-                
+
                 with col_stats1:
                     st.markdown(
                         f'<div class="metric-card">'
@@ -254,7 +311,7 @@ def main():
                         f'</div>',
                         unsafe_allow_html=True
                     )
-                
+
                 with col_stats2:
                     st.markdown(
                         f'<div class="metric-card">'
@@ -263,7 +320,7 @@ def main():
                         f'</div>',
                         unsafe_allow_html=True
                     )
-                
+
                 with col_stats3:
                     st.markdown(
                         f'<div class="metric-card">'
@@ -272,7 +329,7 @@ def main():
                         f'</div>',
                         unsafe_allow_html=True
                     )
-                
+
                 # Detailed metrics
                 with st.expander("📈 Detailed Metrics"):
                     metrics_data = {
@@ -286,43 +343,43 @@ def main():
                         ]
                     }
                     st.table(metrics_data)
-                
+
                 # Download results
                 st.markdown('<h3 class="sub-header">💾 Download Results</h3>', unsafe_allow_html=True)
-                
+
                 col_dl1, col_dl2 = st.columns(2)
-                
+
                 with col_dl1:
                     # Download mask
                     mask_img = Image.fromarray((mask * 255).astype(np.uint8))
                     mask_buffer = io.BytesIO()
                     mask_img.save(mask_buffer, format='PNG')
-                    
+
                     st.download_button(
                         label="📥 Download Mask",
                         data=mask_buffer.getvalue(),
                         file_name="segmentation_mask.png",
                         mime="image/png"
                     )
-                
+
                 with col_dl2:
                     # Download overlay
                     overlay_buffer = io.BytesIO()
                     overlay_img.save(overlay_buffer, format='PNG')
-                    
+
                     st.download_button(
                         label="📥 Download Overlay",
                         data=overlay_buffer.getvalue(),
                         file_name="segmentation_overlay.png",
                         mime="image/png"
                     )
-        
+
         elif image is not None and model is None:
             st.warning("⚠️ Please load a model first!")
-        
+
         elif image is None:
             st.info("👆 Please upload an image to see predictions")
-    
+
     # Footer
     st.markdown("---")
     st.markdown(
@@ -334,6 +391,7 @@ def main():
         """,
         unsafe_allow_html=True
     )
+
 
 if __name__ == "__main__":
     main()

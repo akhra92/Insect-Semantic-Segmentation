@@ -30,7 +30,9 @@ Segmentation_Project/
 ├── 🛠️  utils.py                     # Utility functions and metrics
 ├── 🌐 api.py                        # FastAPI server
 ├── 🎨 streamlit_demo.py             # Streamlit demo app
-├── 📋 requirements-streamlit.txt    # Streamlit dependencies
+├── 📋 requirements.txt              # Streamlit Cloud dependencies (CPU torch)
+├── 📦 packages.txt                  # apt packages for Streamlit Cloud
+├── ⚙️  .streamlit/config.toml       # Streamlit app config
 ├── 💾 saved_models/                 # Trained models directory
 ├── 📈 inference_results/            # Inference outputs
 └── 📂 datasets/                     # Dataset directory
@@ -120,7 +122,7 @@ uvicorn api:app --host 0.0.0.0 --port 8000
 
 #### Streamlit Demo
 ```bash
-pip install -r requirements-streamlit.txt
+pip install -r requirements.txt
 streamlit run streamlit_demo.py
 ```
 
@@ -136,18 +138,44 @@ streamlit run streamlit_demo.py
 
 ### Cloud Deployment Options
 
-#### 🎈 Streamlit Cloud (Free & Easy)
-1. Push code to GitHub
-2. Go to [share.streamlit.io](https://share.streamlit.io)
-3. Connect repository and deploy
+#### 🎈 Streamlit Community Cloud
 
+The repo is pre-configured for Streamlit Cloud:
 
-# Self-hosted
+| File | Purpose |
+|------|---------|
+| `requirements.txt` | Python deps — pinned to **CPU-only** PyTorch wheels |
+| `packages.txt` | apt packages needed by OpenCV |
+| `.streamlit/config.toml` | Upload limit + theme |
+
+**Steps**
+
+1. Train a model (`python main.py ...`) — it is saved to `saved_models/insect_best_model.pt`.
+2. Host the `.pt` file somewhere with a direct download link (Hugging Face Hub or a
+   GitHub Release). Model weights are ~97 MB and are excluded by `.gitignore`, so they
+   are **not** committed to the repo.
+3. Push the repo to GitHub.
+4. Go to [share.streamlit.io](https://share.streamlit.io) → **New app** → pick this repo.
+5. In **Advanced settings**:
+   - Main file path: `streamlit_demo.py`
+   - Python version: **3.12**
+   - Secrets:
+     ```toml
+     MODEL_URL = "https://huggingface.co/<user>/<repo>/resolve/main/insect_best_model.pt"
+     ```
+6. Deploy. The app downloads the weights on first boot and caches them.
+
+Without `MODEL_URL`, the app still runs — users just have to upload a `.pt` file
+via the sidebar.
+
+#### Self-hosted
+
+```bash
 streamlit run streamlit_demo.py \
   --server.port 8501 \
   --server.address 0.0.0.0 \
   --server.headless true
-
+```
 
 ## 🤝 Contributing
 
