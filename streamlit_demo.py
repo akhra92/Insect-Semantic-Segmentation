@@ -239,7 +239,7 @@ def main():
         # Visualization options
         st.markdown('<h3 class="sub-header">🎨 Visualization</h3>', unsafe_allow_html=True)
         overlay_alpha = st.slider("Overlay Transparency", 0.0, 1.0, 0.5, 0.1)
-        show_probabilities = st.checkbox("Show Probability Heatmap", False)
+        show_probabilities = st.checkbox("Show Probability Heatmap", True)
 
     # Main content area
     col1, col2 = st.columns([1, 1])
@@ -329,7 +329,7 @@ def main():
                 with col_stats1:
                     st.markdown(
                         f'<div class="metric-card">'
-                        f'<h4>🎯 Foreground %</h4>'
+                        f'<h5>🎯 Foreground %</h5>'
                         f'<h2>{result["foreground_percentage"]:.1f}%</h2>'
                         f'</div>',
                         unsafe_allow_html=True
