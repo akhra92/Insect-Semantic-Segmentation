@@ -50,9 +50,14 @@ Segmentation_Project/
 
 ### 📉 Training Curves
 
-| Loss | Pixel Accuracy | mIoU |
-|:---:|:---:|:---:|
-| ![Loss curve](plots/loss_curve.png) | ![Pixel accuracy curve](plots/pa_curve.png) | ![mIoU curve](plots/iou_curve.png) |
+**Loss Curve**
+![Loss curve](plots/loss_curve.png)
+
+**Pixel Accuracy Curve**
+![Pixel accuracy curve](plots/pa_curve.png)
+
+**mIoU Curve**
+![mIoU curve](plots/iou_curve.png) |
 
 ### 🎯 Inference on Test Images
 
