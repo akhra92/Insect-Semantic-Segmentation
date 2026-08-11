@@ -33,6 +33,7 @@ Segmentation_Project/
 ├── 📋 requirements.txt              # Streamlit Cloud dependencies (CPU torch)
 ├── 📦 packages.txt                  # apt packages for Streamlit Cloud
 ├── ⚙️  .streamlit/config.toml       # Streamlit app config
+├── 🖼️  assets/                      # Bundled sample image for the demo
 ├── 💾 saved_models/                 # Trained models directory
 ├── 📈 inference_results/            # Inference outputs
 └── 📂 datasets/                     # Dataset directory

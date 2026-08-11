@@ -13,6 +13,7 @@ import urllib.request
 from typing import Optional
 
 DEFAULT_MODEL_PATH = "saved_models/insect_best_model.pt"
+SAMPLE_IMAGE_PATH = "assets/sample_insect.jpg"
 
 # Page configuration
 st.set_page_config(
@@ -123,6 +124,16 @@ def resolve_model() -> Optional[torch.nn.Module]:
         "Switch to **Upload model file** in the sidebar, or set `MODEL_URL` in the app secrets."
     )
     return None
+
+
+@st.cache_data(show_spinner=False)
+def load_sample_image() -> Optional[Image.Image]:
+    """Load the bundled demo image used when the user has not uploaded one"""
+    if not os.path.exists(SAMPLE_IMAGE_PATH):
+        return None
+    with Image.open(SAMPLE_IMAGE_PATH) as img:
+        # convert() forces the lazy read, so nothing holds the file handle open
+        return img.convert("RGB")
 
 
 @st.cache_resource
@@ -243,16 +254,28 @@ def main():
             help="Upload an image containing insects for segmentation"
         )
 
-        # Display uploaded image
-        image = None
+        # Display the uploaded image, or fall back to the bundled sample
+        image, is_sample = None, False
         if uploaded_file is not None:
             image = Image.open(uploaded_file)
             st.image(image, caption="Uploaded Image", use_container_width=True)
+        else:
+            image = load_sample_image()
+            if image is not None:
+                is_sample = True
+                st.image(
+                    image,
+                    caption="Sample image — upload your own above to replace it",
+                    use_container_width=True
+                )
 
     with col2:
         st.markdown('<h2 class="sub-header">🎯 Prediction Results</h2>', unsafe_allow_html=True)
 
         if image is not None and model is not None:
+            if is_sample:
+                st.caption("Showing results for the bundled sample image.")
+
             # Get transforms
             transform = get_image_transforms()
 
@@ -378,6 +401,7 @@ def main():
             st.warning("⚠️ Please load a model first!")
 
         elif image is None:
+            # Only reachable when the bundled sample is missing from the deployment
             st.info("👆 Please upload an image to see predictions")
 
     # Footer
