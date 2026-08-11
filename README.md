@@ -46,24 +46,7 @@ Segmentation_Project/
 ```
 **NOTE:** Download the dataset using **downloader.py** file
 
-## 📊 Results
-
-U-Net with a ResNet34 encoder, trained for 9 epochs on the arthropodia dataset
-(4,949 image/mask pairs, split 80/10/10 → 3,959 train / 494 val / 496 test) at
-256×256, batch size 8, Adam @ 1e-3, cross-entropy loss. The checkpoint is selected
-by best validation loss.
-
-| Metric | Train (final) | Val (final) | Val @ saved checkpoint |
-|:---|---:|---:|---:|
-| Loss | 0.063 | 0.088 | 0.090 |
-| Pixel Accuracy | 0.974 | 0.965 | 0.964 |
-| mIoU | 0.850 | 0.799 | 0.802 |
-
-<sub>Values read off the curves below, so they are approximate. The shipped checkpoint
-is from **epoch 4**, not the last epoch: `Trainer` only re-saves when validation loss
-improves by more than `thresh=0.005`, and every later epoch gained only ~0.002. The
-five stagnant epochs that follow are what trip the `early_stop_thresh=5` guard and end
-the run at 9 of the requested 10 epochs.</sub>
+## 📉 Results
 
 ### 📉 Training Curves
 
@@ -71,22 +54,11 @@ the run at 9 of the requested 10 epochs.</sub>
 |:---:|:---:|:---:|
 | ![Loss curve](plots/loss_curve.png) | ![Pixel accuracy curve](plots/pa_curve.png) | ![mIoU curve](plots/iou_curve.png) |
 
-Both losses fall steeply for the first three epochs. From epoch 4 onward the
-validation curves flatten (loss ≈0.088, mIoU ≈0.80) while the training curves keep
-improving — the ~0.05 mIoU train/val gap at the end is mild overfitting. Validation
-mIoU is the noisiest of the three, dipping to 0.726 at epoch 3 before peaking at
-≈0.817 at epoch 6.
-
 ### 🎯 Inference on Test Images
 
 Five held-out test samples — input, ground-truth mask, and predicted mask:
 
 ![Inference results](inference_results/inference_visualization.png)
-
-The model localises the insect reliably across varied backgrounds (leaf, bark,
-perforated metal, moss). Predicted masks are noticeably smoother than the labels:
-fine appendages such as legs and antennae get absorbed into the body blob, which is
-expected when predicting at 256×256 and the main source of the residual mIoU gap.
 
 ## 🛠 Installation
 
