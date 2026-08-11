@@ -2,7 +2,7 @@
 
 A deep learning project for semantic segmentation of insects using PyTorch and U-Net architecture with ResNet34 encoder. This project includes training, inference, API server, and interactive Streamlit demo capabilities.
 NOTE: The Dockerfile should be modified to be able to run this project in GPU!
-[Try Demo Here](share.streamlit.io)
+[Try Demo Here->](https://insect-semantic-segmentation.streamlit.app/)
 
 ## 📋 Table of Contents
 - [Project Structure](#-project-structure)
@@ -137,48 +137,8 @@ streamlit run streamlit_demo.py
 - **POST** `/predict/batch` - Batch image segmentation
 
 
-### Cloud Deployment Options
-
-#### 🎈 Streamlit Community Cloud
-
-The repo is pre-configured for Streamlit Cloud:
-
-| File | Purpose |
-|------|---------|
-| `requirements.txt` | Python deps — pinned to **CPU-only** PyTorch wheels |
-| `packages.txt` | apt packages needed by OpenCV (see note below) |
-| `.streamlit/config.toml` | Upload limit + theme |
-
-**Steps**
-
-1. Train a model (`python main.py ...`) — it is saved to `saved_models/insect_best_model.pt`.
-2. Host the `.pt` file somewhere with a direct download link (Hugging Face Hub or a
-   GitHub Release). Model weights are ~97 MB and are excluded by `.gitignore`, so they
-   are **not** committed to the repo.
-3. Push the repo to GitHub.
-4. Go to [share.streamlit.io](https://share.streamlit.io) → **New app** → pick this repo.
-5. In **Advanced settings**:
-   - Main file path: `streamlit_demo.py`
-   - Python version: **3.12**
-   - Secrets:
-     ```toml
-     MODEL_URL = "https://huggingface.co/<user>/<repo>/resolve/main/insect_best_model.pt"
-     ```
-6. Deploy. The app downloads the weights on first boot and caches them.
-
 Without `MODEL_URL`, the app still runs — users just have to upload a `.pt` file
 via the sidebar.
-
-> **Note on `packages.txt`.** Streamlit Cloud runs Debian **trixie** (13), where GLib was
-> renamed `libglib2.0-0` → `libglib2.0-0t64` as part of the 64-bit `time_t` transition.
-> Requesting the old name makes apt fall back to the image's stale `bullseye-security`
-> source, whose Debian 11 build depends on `libffi7`/`libpcre3` — neither exists in trixie,
-> so the build dies with *"held broken packages"*. Keep the `t64` suffix. Also note that
-> `packages.txt` is parsed as one package name per line and does **not** support `#`
-> comments — a comment line will be treated as a package and fail the install.
->
-> GLib is needed because `albumentations` imports OpenCV, and the wheel links
-> `libgthread-2.0` / `libglib-2.0` without bundling them.
 
 #### Self-hosted
 
@@ -188,11 +148,3 @@ streamlit run streamlit_demo.py \
   --server.address 0.0.0.0 \
   --server.headless true
 ```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch: `git checkout -b feature/new-feature`
-3. Commit changes: `git commit -am 'Add new feature'`
-4. Push to branch: `git push origin feature/new-feature`
-5. Submit Pull Request
