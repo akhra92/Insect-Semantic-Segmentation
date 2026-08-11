@@ -1,4 +1,5 @@
 import os
+import zipfile
 from glob import glob
 
 class Downloader:
@@ -20,8 +21,15 @@ class Downloader:
             os.makedirs(dataset_path, exist_ok=True)
         os.system(f"{url} -p {dataset_path}")
         zip_files = glob(os.path.join(self.save_dir, dataset_name, '*.zip'))
+        if not zip_files:
+            raise RuntimeError(
+                f"No archive was downloaded into '{dataset_path}'. Check that the Kaggle CLI is "
+                "installed (`pip install kaggle`) and that ~/.kaggle/kaggle.json holds valid credentials."
+            )
+        # zipfile instead of the `unzip` binary, which does not exist on Windows
         for zip_file in zip_files:
-            os.system(f'unzip -q {zip_file} -d {dataset_path}')
+            with zipfile.ZipFile(zip_file) as archive:
+                archive.extractall(dataset_path)
             os.remove(zip_file)  # Remove the zip file after extraction
         print(f"Dataset '{dataset_name}' downloaded and extracted to '{dataset_path}'")
 
