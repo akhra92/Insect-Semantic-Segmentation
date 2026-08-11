@@ -145,7 +145,7 @@ The repo is pre-configured for Streamlit Cloud:
 | File | Purpose |
 |------|---------|
 | `requirements.txt` | Python deps — pinned to **CPU-only** PyTorch wheels |
-| `packages.txt` | apt packages needed by OpenCV |
+| `packages.txt` | apt packages needed by OpenCV (see note below) |
 | `.streamlit/config.toml` | Upload limit + theme |
 
 **Steps**
@@ -167,6 +167,17 @@ The repo is pre-configured for Streamlit Cloud:
 
 Without `MODEL_URL`, the app still runs — users just have to upload a `.pt` file
 via the sidebar.
+
+> **Note on `packages.txt`.** Streamlit Cloud runs Debian **trixie** (13), where GLib was
+> renamed `libglib2.0-0` → `libglib2.0-0t64` as part of the 64-bit `time_t` transition.
+> Requesting the old name makes apt fall back to the image's stale `bullseye-security`
+> source, whose Debian 11 build depends on `libffi7`/`libpcre3` — neither exists in trixie,
+> so the build dies with *"held broken packages"*. Keep the `t64` suffix. Also note that
+> `packages.txt` is parsed as one package name per line and does **not** support `#`
+> comments — a comment line will be treated as a package and fail the install.
+>
+> GLib is needed because `albumentations` imports OpenCV, and the wheel links
+> `libgthread-2.0` / `libglib-2.0` without bundling them.
 
 #### Self-hosted
 
